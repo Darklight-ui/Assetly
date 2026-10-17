@@ -10,6 +10,7 @@ A Nigeria-first asset inventory starter built with Next.js App Router, TypeScrip
 - **Auth:** Auth.js credentials provider with bcrypt password hashing and JWT session strategy. The initial organization membership is created transactionally during registration.
 - **Data:** PostgreSQL + Prisma. Organization-scoped unique asset tags and serial numbers; indexes for common filters; audit rows created in the same transaction as asset writes.
 - **QR tags:** QR code encodes a public HTTPS URL (`/tag/{opaque-token}`), never an app deep link. Public pages default to disabled and expose only explicitly approved fields.
+- **PWA:** installable manifest, generated icons, install prompt and a service worker that caches only static assets plus an offline fallback. Authenticated dashboard HTML and API responses are never cached.
 - **Payments/files:** adapter environment placeholders only; no payment or object-storage provider is represented as integrated.
 
 ## Requirements
@@ -60,6 +61,20 @@ A Nigeria-first asset inventory starter built with Next.js App Router, TypeScrip
 - `GET /api/labels/[assetId]`: authenticated QR data URL generation
 - `GET /api/public-assets/[token]`: token-based public data endpoint
 - `/tag/[token]`: public-safe tag page, only when `publicEnabled` is true
+- `/offline`: static offline fallback served by the service worker
+- `/manifest.webmanifest`, `/sw.js`: PWA manifest and service worker
+
+## PWA
+
+Assetly is installable from supported browsers:
+
+- `src/app/manifest.ts` defines the manifest served at `/manifest.webmanifest` (standalone display, theme colors and shortcuts to Assets, Add asset and QR labels).
+- Icons live in `public/icons/` and are regenerated with `node scripts/generate-icons.mjs` (also wired to `predev`/`prebuild`, so `npm run dev` and `npm run build` regenerate them automatically). The script has no image dependencies; it rasterizes the brand mark and encodes the PNGs itself.
+- `public/sw.js` precaches the offline page and icons, serves `/_next/static` and image assets cache-first, and falls back to `/offline` when a navigation fails.
+- Authenticated dashboard HTML and `/api/*` responses are **never** cached, so inventory data cannot leak between accounts or on shared devices.
+- The service worker registers only in production. In development it unregisters any existing worker so hot reload is never served stale content.
+- The dashboard header shows an **Install app** button when the browser fires `beforeinstallprompt` (Chromium-based browsers). On iOS Safari, use Share → Add to Home Screen.
+- Installability requires HTTPS in production; `localhost` works for development.
 
 ## Security and data integrity notes
 

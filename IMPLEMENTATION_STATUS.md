@@ -12,6 +12,7 @@
 - Condition quick actions and a role-gated delete confirmation dialog on the asset detail page
 - Check-out/check-in APIs, assignment history and check-out form on the asset detail page
 - Maintenance APIs, create/edit forms, history and admin-only record deletion
+- Installable PWA: manifest, generated icons, install prompt, service worker and offline fallback (no authenticated data cached)
 - Asset detail page with audit history, assignment/maintenance history display
 - Transactional create/update/delete audit records and analytics events
 - Organization-scoped unique asset tags and serial numbers
