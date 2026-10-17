@@ -2,7 +2,7 @@
 
 A Nigeria-first asset inventory starter built with Next.js App Router, TypeScript, Tailwind CSS v4, PostgreSQL, Prisma, Auth.js Credentials, Zod and QRCode. It includes the initial product architecture and working MVP paths for registration, sign-in, organization-scoped asset CRUD APIs, an inventory dashboard, audit records and QR code generation.
 
-> **Production status:** this is an MVP starter, not a fully audited production SaaS. Email verification, password reset, rate limiting, file uploads, spreadsheet import/export, maintenance/assignment write flows, subscription checkout, admin operations, PDF label sheets, and legal/privacy workflows still need implementation and testing. Do not claim those features are live.
+> **Production status:** this is an MVP starter, not a fully audited production SaaS. Email verification, password reset, rate limiting, file uploads, spreadsheet import/export, subscription checkout, admin operations, PDF label sheets, and legal/privacy workflows still need implementation and testing. Do not claim those features are live.
 
 ## Architecture
 
@@ -43,19 +43,27 @@ A Nigeria-first asset inventory starter built with Next.js App Router, TypeScrip
 - `/register`, `/login`: account creation and login
 - `/dashboard`: overview and workspace summary
 - `/dashboard/assets`: searchable, filterable, paginated inventory list
-- `/dashboard/assets/new`: validated asset creation form
-- `/dashboard/assets/[id]`: asset detail, condition quick actions and history
+- `/dashboard/assets/new`: validated asset creation form with category/location selection
+- `/dashboard/assets/[id]`: asset detail, condition quick actions, check-out/check-in and maintenance forms
 - `/dashboard/assets/[id]/edit`: validated asset edit form
+- `/dashboard/categories`, `/dashboard/locations`: taxonomy management
 - `/dashboard/tags`: QR generator and PNG download
 - `GET/POST /api/assets`: list/create assets
 - `GET/PATCH/DELETE /api/assets/[id]`: read/update/delete assets
+- `GET/POST /api/categories`, `PATCH/DELETE /api/categories/[id]`: category management
+- `GET/POST /api/locations`, `PATCH/DELETE /api/locations/[id]`: location management
+- `POST /api/organization/active`: switch the active workspace (membership-validated)
+- `GET/POST /api/assets/[id]/assignments`: assignment history and check-out
+- `PATCH/DELETE /api/assignments/[id]`: check-in and record correction
+- `GET/POST /api/assets/[id]/maintenance`: maintenance history and new records
+- `PATCH/DELETE /api/maintenance/[id]`: update or remove maintenance records
 - `GET /api/labels/[assetId]`: authenticated QR data URL generation
 - `GET /api/public-assets/[token]`: token-based public data endpoint
 - `/tag/[token]`: public-safe tag page, only when `publicEnabled` is true
 
 ## Security and data integrity notes
 
-1. Asset APIs obtain the current user and first organization membership on the server. Never trust an organization ID supplied by a browser. Before multi-organization UX ships, add an explicit active-organization selector and verify membership on every request.
+1. Asset APIs resolve the active organization from an httpOnly cookie and re-validate that membership on every request; an organization ID supplied by a browser is never trusted. The dashboard exposes an explicit workspace selector. Keep this validation when adding team invitations or cross-organization reporting.
 2. Role checks are enforced in API handlers. Expand permission tests before adding team invitations or bulk operations.
 3. Asset tag and serial number uniqueness is scoped to an organization. PostgreSQL permits multiple `NULL` serial numbers under the unique constraint.
 4. Audit events are written transactionally with create/update/delete. For strong immutability, use a separate DB role that cannot update/delete audit rows and add PostgreSQL triggers/policies; app-level append-only conventions alone are not a security boundary.
@@ -66,13 +74,11 @@ A Nigeria-first asset inventory starter built with Next.js App Router, TypeScrip
 
 ## Recommended next build order
 
-1. Add category/location management and multi-org active context.
-2. Add check-out/check-in and maintenance APIs + forms.
-3. Add CSV import preview/confirm and filtered export.
-4. Generate A4/Letter PDF label sheets and print layouts.
-5. Add email verification/password reset, rate limiting, test coverage and security review.
-6. Add object storage, then a real Nigerian payment provider integration with verified webhooks.
-7. Add team invites, role management, reports, plan limits and platform administration.
+1. Add CSV import preview/confirm and filtered export.
+2. Generate A4/Letter PDF label sheets and print layouts.
+3. Add email verification/password reset, rate limiting, test coverage and security review.
+4. Add object storage, then a real Nigerian payment provider integration with verified webhooks.
+5. Add team invites, role management, reports, plan limits and platform administration.
 
 ## Deployment
 

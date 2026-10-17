@@ -1,20 +1,23 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
-import {
-  ArrowLeft,
-  CalendarClock,
-  History,
-  MapPin,
-  QrCode,
-} from "lucide-react";
+import { ArrowLeft, History, QrCode } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManage } from "@/lib/organization";
+import { canAdminister, canManage, getActiveMembership } from "@/lib/organization";
 import {
   ConditionQuickActions,
   DeleteAssetButton,
 } from "./asset-actions";
+import { AssignmentPanel } from "@/components/assignment-panel";
+import { MaintenancePanel } from "@/components/maintenance-panel";
+
+function dateInputValue(date: Date | null) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export default async function AssetDetail({
   params,
@@ -25,10 +28,7 @@ export default async function AssetDetail({
   const userId = (session?.user as { id?: string } | undefined)?.id;
   if (!userId) redirect("/login");
 
-  const membership = await prisma.membership.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "asc" },
-  });
+  const membership = await getActiveMembership(userId);
   if (!membership) redirect("/register");
 
   const { id } = await params;
@@ -52,7 +52,38 @@ export default async function AssetDetail({
   if (!asset) notFound();
 
   const canEdit = canManage(membership.role);
-  const canDelete = ["OWNER", "ADMIN"].includes(membership.role);
+  const canDelete = canAdminister(membership.role);
+
+  const assignmentViews = asset.assignments.map((assignment) => ({
+    id: assignment.id,
+    employeeName: assignment.employeeName,
+    employeeEmail: assignment.employeeEmail,
+    department: assignment.department,
+    notes: assignment.notes,
+    status: assignment.status,
+    checkedOutAt: assignment.checkedOutAt.toLocaleDateString("en-NG"),
+    checkedInAt:
+      assignment.checkedInAt?.toLocaleDateString("en-NG") ?? null,
+  }));
+
+  const maintenanceViews = asset.maintenanceRecords.map((record) => ({
+    id: record.id,
+    title: record.title,
+    description: record.description,
+    vendor: record.vendor,
+    cost:
+      record.cost == null
+        ? null
+        : new Intl.NumberFormat("en-NG", {
+            style: "currency",
+            currency: "NGN",
+          }).format(Number(record.cost)),
+    performedAt: record.performedAt.toLocaleDateString("en-NG"),
+    nextDueAt: record.nextDueAt?.toLocaleDateString("en-NG") ?? null,
+    costValue: record.cost?.toString() ?? "",
+    performedAtValue: dateInputValue(record.performedAt),
+    nextDueAtValue: dateInputValue(record.nextDueAt),
+  }));
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-5 py-8 lg:px-10">
@@ -197,24 +228,19 @@ export default async function AssetDetail({
         )}
       </section>
 
-      <section className="mt-5 grid gap-5 sm:grid-cols-2">
-        <HistoryCard
-          title="Assignments"
-          icon={<MapPin size={18} />}
-          rows={asset.assignments.map(
-            (assignment) =>
-              `${assignment.employeeName} · ${assignment.status.replaceAll("_", " ")} · ${assignment.checkedOutAt.toLocaleDateString("en-NG")}`,
-          )}
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <AssignmentPanel
+          assetId={asset.id}
+          assignments={assignmentViews}
+          canManage={canEdit}
         />
-        <HistoryCard
-          title="Maintenance"
-          icon={<CalendarClock size={18} />}
-          rows={asset.maintenanceRecords.map(
-            (record) =>
-              `${record.title} · ${record.performedAt.toLocaleDateString("en-NG")}`,
-          )}
+        <MaintenancePanel
+          assetId={asset.id}
+          records={maintenanceViews}
+          canManage={canEdit}
+          canDelete={canDelete}
         />
-      </section>
+      </div>
 
       {canDelete && (
         <section className="mt-5 rounded-2xl border border-red-400/15 bg-[#0d121d] p-5">
@@ -243,38 +269,5 @@ function Stat({ label, value }: { label: string; value: string }) {
       <p className="text-sm text-slate-400">{label}</p>
       <p className="mt-3 text-2xl font-semibold">{value}</p>
     </div>
-  );
-}
-
-function HistoryCard({
-  title,
-  icon,
-  rows,
-}: {
-  title: string;
-  icon: ReactNode;
-  rows: string[];
-}) {
-  return (
-    <section className="rounded-2xl border border-white/[.08] bg-[#0d121d] p-5">
-      <div className="flex items-center gap-2">
-        {icon}
-        <h2 className="font-semibold">{title}</h2>
-      </div>
-      {rows.length === 0 ? (
-        <p className="mt-4 text-sm text-slate-500">No records yet.</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {rows.map((row, index) => (
-            <li
-              key={index}
-              className="border-t border-white/[.06] pt-3 text-sm text-slate-400"
-            >
-              {row}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }

@@ -10,6 +10,8 @@ export type AssetFormValues = {
   description: string;
   serialNumber: string;
   condition: string;
+  categoryId: string;
+  locationId: string;
   quantity: string;
   quantityGood: string;
   quantityDamaged: string;
@@ -30,6 +32,8 @@ export const emptyAssetFormValues: AssetFormValues = {
   description: "",
   serialNumber: "",
   condition: "GOOD",
+  categoryId: "",
+  locationId: "",
   quantity: "1",
   quantityGood: "1",
   quantityDamaged: "0",
@@ -52,10 +56,14 @@ export function AssetForm({
   mode,
   assetId,
   initial,
+  categories = [],
+  locations = [],
 }: {
   mode: "create" | "edit";
   assetId?: string;
   initial?: Partial<AssetFormValues>;
+  categories?: { id: string; name: string }[];
+  locations?: { id: string; name: string }[];
 }) {
   const [values, setValues] = useState<AssetFormValues>({
     ...emptyAssetFormValues,
@@ -126,6 +134,8 @@ export function AssetForm({
       description: nullable(values.description),
       serialNumber: nullable(values.serialNumber),
       condition: values.condition,
+      categoryId: values.categoryId || null,
+      locationId: values.locationId || null,
       quantity: total,
       quantityGood: good,
       quantityDamaged: damaged,
@@ -209,6 +219,38 @@ export function AssetForm({
             {conditions.map((condition) => (
               <option key={condition} value={condition}>
                 {condition.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm text-slate-300">
+          Category
+          <select
+            name="categoryId"
+            value={values.categoryId}
+            onChange={change}
+            className={inputClass}
+          >
+            <option value="">Uncategorized</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm text-slate-300">
+          Location
+          <select
+            name="locationId"
+            value={values.locationId}
+            onChange={change}
+            className={inputClass}
+          >
+            <option value="">Location not set</option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
               </option>
             ))}
           </select>
