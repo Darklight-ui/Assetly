@@ -1,0 +1,274 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  ASSET_MANAGER
+  STAFF
+  AUDITOR
+}
+
+enum Condition {
+  GOOD
+  DAMAGED
+  UNDER_REPAIR
+  MISSING
+  DISPOSED
+}
+
+enum AssignmentStatus {
+  CHECKED_OUT
+  CHECKED_IN
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING
+  PAID
+  FULFILLED
+  CANCELED
+}
+
+model User {
+  id String @id @default(cuid())
+  name String?
+  email String @unique
+  emailVerified DateTime?
+  image String?
+  passwordHash String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  memberships Membership[]
+  auditLogs AuditLog[]
+  assignments AssetAssignment[] @relation("AssignedBy")
+  accounts Account[]
+  sessions Session[]
+}
+model Organization {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  countryCode String @default("NG")
+  currency String @default("NGN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  memberships Membership[]
+  assets Asset[]
+  categories AssetCategory[]
+  locations Location[]
+  auditLogs AuditLog[]
+  tags AssetTag[]
+  subscriptions Subscription[]
+  orders Order[]
+}
+model Membership {
+  id String @id @default(cuid())
+  userId String
+  organizationId String
+  role Role @default(STAFF)
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  @@unique([userId, organizationId])
+  @@index([organizationId, role])
+}
+model AssetCategory {
+  id String @id @default(cuid())
+  organizationId String
+  name String
+  description String?
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  assets Asset[]
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+model Location {
+  id String @id @default(cuid())
+  organizationId String
+  name String
+  building String?
+  floor String?
+  room String?
+  department String?
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  assets Asset[]
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+model Asset {
+  id String @id @default(cuid())
+  organizationId String
+  assetTag String
+  name String
+  description String?
+  serialNumber String?
+  categoryId String?
+  locationId String?
+  custodianName String?
+  condition Condition @default(GOOD)
+  quantity Int @default(1)
+  quantityGood Int @default(1)
+  quantityDamaged Int @default(0)
+  quantityUnaccounted Int @default(0)
+  purchaseDate DateTime?
+  purchaseCost Decimal? @db.Decimal(14,2)
+  supplier String?
+  warrantyExpiry DateTime?
+  publicEnabled Boolean @default(false)
+  publicDescription String?
+  notes String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  category AssetCategory? @relation(fields:[categoryId], references:[id], onDelete:SetNull)
+  location Location? @relation(fields:[locationId], references:[id], onDelete:SetNull)
+  assignments AssetAssignment[]
+  maintenanceRecords MaintenanceRecord[]
+  tags AssetTag[]
+  auditLogs AuditLog[]
+  @@unique([organizationId, assetTag])
+  @@unique([organizationId, serialNumber])
+  @@index([organizationId, name])
+  @@index([organizationId, condition])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, locationId])
+  @@index([organizationId, updatedAt])
+}
+model AssetAssignment {
+  id String @id @default(cuid())
+  assetId String
+  assignedById String
+  employeeName String
+  employeeEmail String?
+  department String?
+  checkedOutAt DateTime @default(now())
+  checkedInAt DateTime?
+  status AssignmentStatus @default(CHECKED_OUT)
+  notes String?
+  asset Asset @relation(fields:[assetId], references:[id], onDelete:Cascade)
+  assignedBy User @relation("AssignedBy", fields:[assignedById], references:[id])
+  @@index([assetId, status])
+}
+model MaintenanceRecord {
+  id String @id @default(cuid())
+  assetId String
+  title String
+  description String?
+  vendor String?
+  cost Decimal? @db.Decimal(14,2)
+  performedAt DateTime @default(now())
+  nextDueAt DateTime?
+  createdById String
+  asset Asset @relation(fields:[assetId], references:[id], onDelete:Cascade)
+  @@index([assetId, performedAt])
+}
+model AuditLog {
+  id String @id @default(cuid())
+  organizationId String
+  assetId String?
+  actorId String?
+  action String
+  entityType String
+  entityId String
+  changes Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  asset Asset? @relation(fields:[assetId], references:[id], onDelete:SetNull)
+  actor User? @relation(fields:[actorId], references:[id], onDelete:SetNull)
+  @@index([organizationId, createdAt])
+  @@index([organizationId, entityType, entityId])
+}
+model AssetTag {
+  id String @id @default(cuid())
+  organizationId String
+  assetId String
+  publicToken String @unique @default(cuid())
+  createdAt DateTime @default(now())
+  lastPrintedAt DateTime?
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  asset Asset @relation(fields:[assetId], references:[id], onDelete:Cascade)
+  @@index([organizationId, assetId])
+}
+model Subscription {
+  id String @id @default(cuid())
+  organizationId String
+  planKey String @default("free")
+  status SubscriptionStatus @default(TRIALING)
+  provider String?
+  providerSubscriptionId String? @unique
+  currentPeriodEnd DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  @@index([organizationId, status])
+}
+model Order {
+  id String @id @default(cuid())
+  organizationId String
+  status OrderStatus @default(DRAFT)
+  itemType String
+  quantity Int
+  amount Decimal @db.Decimal(14,2)
+  currency String @default("NGN")
+  providerReference String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Cascade)
+  @@index([organizationId, createdAt])
+}
+model AnalyticsEvent {
+  id String @id @default(cuid())
+  organizationId String?
+  eventName String
+  actorId String?
+  properties Json?
+  createdAt DateTime @default(now())
+  @@index([organizationId, eventName, createdAt])
+}
+model Account {
+  id String @id @default(cuid())
+  userId String
+  type String
+  provider String
+  providerAccountId String
+  refresh_token String? @db.Text
+  access_token String? @db.Text
+  expires_at Int?
+  token_type String?
+  scope String?
+  id_token String? @db.Text
+  session_state String?
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  @@unique([provider, providerAccountId])
+}
+model Session {
+  id String @id @default(cuid())
+  sessionToken String @unique
+  userId String
+  expires DateTime
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+}
+model VerificationToken {
+  identifier String
+  token String @unique
+  expires DateTime
+  @@unique([identifier, token])
+}

@@ -1,0 +1,5 @@
+import { NextResponse } from "next/server";
+import QRCode from "qrcode";
+import { prisma } from "@/lib/prisma";
+import { getContext } from "@/lib/organization";
+export async function GET(_request:Request,{params}:{params:Promise<{assetId:string}>}){const ctx=await getContext();if("response" in ctx)return ctx.response;const {assetId}=await params;const asset=await prisma.asset.findFirst({where:{id:assetId,organizationId:ctx.organization.id},include:{tags:true}});if(!asset)return NextResponse.json({error:"Asset not found."},{status:404});let tag=asset.tags[0];if(!tag)tag=await prisma.assetTag.create({data:{organizationId:ctx.organization.id,assetId}});const base=(process.env.NEXT_PUBLIC_APP_URL??"http://localhost:3000").replace(/\/$/,"");const url=`${base}/tag/${tag.publicToken}`;const dataUrl=await QRCode.toDataURL(url,{errorCorrectionLevel:"M",margin:1,width:320});await prisma.assetTag.update({where:{id:tag.id},data:{lastPrintedAt:new Date()}});return NextResponse.json({asset:{name:asset.name,assetTag:asset.assetTag},url,qrDataUrl:dataUrl});}
