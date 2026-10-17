@@ -73,7 +73,7 @@ Assetly is installable from supported browsers:
 - `public/sw.js` precaches the offline page and icons, serves `/_next/static` and image assets cache-first, and falls back to `/offline` when a navigation fails.
 - Authenticated dashboard HTML and `/api/*` responses are **never** cached, so inventory data cannot leak between accounts or on shared devices.
 - The service worker registers only in production. In development it unregisters any existing worker so hot reload is never served stale content.
-- The dashboard header shows an **Install app** button when the browser fires `beforeinstallprompt` (Chromium-based browsers). On iOS Safari, use Share → Add to Home Screen.
+- The login page shows an **Install app** button when the browser fires `beforeinstallprompt` (Chromium-based browsers). On iOS Safari, use Share → Add to Home Screen.
 - Installability requires HTTPS in production; `localhost` works for development.
 
 ## Security and data integrity notes

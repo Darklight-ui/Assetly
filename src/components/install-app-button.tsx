@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
-
-type InstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
-};
+import {
+  clearDeferredPrompt,
+  getDeferredPrompt,
+  subscribeToInstallPrompt,
+  type InstallPromptEvent,
+} from "@/components/install-prompt";
 
 /**
  * Shows the browser's native install prompt when available (Chromium-based
@@ -22,22 +23,10 @@ export function InstallAppButton() {
   useEffect(() => {
     if (window.matchMedia("(display-mode: standalone)").matches) return;
 
-    function onBeforeInstall(event: Event) {
-      event.preventDefault();
-      setPromptEvent(event as InstallPromptEvent);
-    }
+    const sync = () => setPromptEvent(getDeferredPrompt());
+    sync();
 
-    function onInstalled() {
-      setPromptEvent(null);
-    }
-
-    window.addEventListener("beforeinstallprompt", onBeforeInstall);
-    window.addEventListener("appinstalled", onInstalled);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
+    return subscribeToInstallPrompt(sync);
   }, []);
 
   if (!promptEvent) return null;
@@ -48,9 +37,12 @@ export function InstallAppButton() {
     try {
       await promptEvent.prompt();
       await promptEvent.userChoice;
+    } catch {
+      // The prompt can only be used once; ignore a stale event.
     } finally {
-      setBusy(false);
+      clearDeferredPrompt();
       setPromptEvent(null);
+      setBusy(false);
     }
   }
 

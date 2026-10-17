@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { InstallPromptListener } from "@/components/install-prompt-listener";
 
 export const metadata: Metadata = {
   title: "Assetly — Every Asset. Accounted For.",
@@ -33,6 +34,7 @@ export default function RootLayout({children}:{children:React.ReactNode}){
       <body>
         {children}
         <ServiceWorkerRegister />
+        <InstallPromptListener />
       </body>
     </html>
   );
