@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManage } from "@/lib/organization";
+import { canManage, getActiveMembership } from "@/lib/organization";
 import {
   AssetForm,
   type AssetFormValues,
@@ -21,10 +21,7 @@ export default async function EditAsset({
   const userId = (session?.user as { id?: string } | undefined)?.id;
   if (!userId) redirect("/login");
 
-  const membership = await prisma.membership.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "asc" },
-  });
+  const membership = await getActiveMembership(userId);
   if (!membership) redirect("/register");
 
   const { id } = await params;
@@ -32,6 +29,19 @@ export default async function EditAsset({
     where: { id, organizationId: membership.organizationId },
   });
   if (!asset) notFound();
+
+  const [categories, locations] = await Promise.all([
+    prisma.assetCategory.findMany({
+      where: { organizationId: membership.organizationId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.location.findMany({
+      where: { organizationId: membership.organizationId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!canManage(membership.role)) {
     return (
@@ -59,6 +69,8 @@ export default async function EditAsset({
     description: asset.description ?? "",
     serialNumber: asset.serialNumber ?? "",
     condition: asset.condition,
+    categoryId: asset.categoryId ?? "",
+    locationId: asset.locationId ?? "",
     quantity: String(asset.quantity),
     quantityGood: String(asset.quantityGood),
     quantityDamaged: String(asset.quantityDamaged),
@@ -89,7 +101,13 @@ export default async function EditAsset({
           audit history.
         </p>
       </div>
-      <AssetForm mode="edit" assetId={asset.id} initial={initial} />
+      <AssetForm
+        mode="edit"
+        assetId={asset.id}
+        initial={initial}
+        categories={categories}
+        locations={locations}
+      />
     </main>
   );
 }
